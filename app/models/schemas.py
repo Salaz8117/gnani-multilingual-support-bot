@@ -4,7 +4,7 @@ from typing import Optional, List, Dict, Any, Literal
 from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 
-from app.models.enums import Language, Intent, Sentiment, ResolutionAction, VoiceType
+from app.models.enums import Language, Intent, Sentiment, ResolutionAction, VoiceType, AudioFormat, BotMode
 
 
 class PrismaTranscriptionRequest(BaseModel):
@@ -91,6 +91,7 @@ class SupportBotRequest(BaseModel):
     audio_base64: str = Field(..., description="Base64 encoded audio input")
     audio_format: str = Field(default="wav", description="Audio format")
     language: Language = Field(default=Language.AUTO, description="Expected language or 'auto'")
+    mode: BotMode = Field(default=BotMode.SUPPORT, description="Bot operating mode (support or translate)")
     session_id: Optional[str] = Field(default=None, description="Session ID for conversation continuity")
     context: Optional[Dict[str, Any]] = Field(default=None, description="Additional context")
 

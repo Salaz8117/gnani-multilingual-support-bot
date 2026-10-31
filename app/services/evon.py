@@ -8,7 +8,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 from app.core.config import get_settings
 from app.core.exceptions import EvonError
 from app.models.schemas import EvonReasoningRequest, EvonReasoningResponse
-from app.models.enums import Language, Intent, Sentiment, ResolutionAction
+from app.models.enums import Language, Intent, Sentiment, ResolutionAction, BotMode
 
 
 class EvonClient:
@@ -95,6 +95,7 @@ Output ONLY valid JSON with this exact structure:
         language: Language,
         context: Optional[Dict[str, Any]] = None,
         conversation_history: Optional[List[Dict[str, str]]] = None,
+        mode: BotMode = BotMode.SUPPORT,
     ) -> EvonReasoningResponse:
         """
         Perform reasoning on transcript using Evon.
@@ -110,7 +111,39 @@ Output ONLY valid JSON with this exact structure:
         """
         start_time = time.perf_counter()
         
-        system_prompt = self._load_system_prompt()
+        if mode == BotMode.TRANSLATE:
+            # For translation, we use a specific prompt and the context/language as target
+            target_lang = context.get("target_language", "en-IN") if context else "en-IN"
+            system_prompt = f\"\"\"You are a professional real-time translator. 
+Translate the provided text into {target_lang} while preserving the exact tone, emotion, and cultural nuances.
+Output ONLY valid JSON with this exact structure:
+{{
+  \"intent\": \"general_query\",
+  \"sentiment\": \"neutral\",
+  \"confidence\": 0.99,
+  \"resolution\": \"provide_info\",
+  \"response_text\": \"TRANSLATED_TEXT_HERE\",
+  \"extracted_entities\": {{}},
+  \"reasoning_trace\": \"Translated from source to {target_lang}.\"
+}}\"\"\"
+        else:
+            if mode == BotMode.TRANSLATE:
+            # For translation, we use a specific prompt and the context/language as target
+            target_lang = context.get(\"target_language\", \"en-IN\") if context else \"en-IN\"
+            system_prompt = f\"\"\"You are a professional real-time translator. 
+Translate the provided text into {target_lang} while preserving the exact tone, emotion, and cultural nuances.
+Output ONLY valid JSON with this exact structure:
+{{
+  \"intent\": \"general_query\",
+  \"sentiment\": \"neutral\",
+  \"confidence\": 0.99,
+  \"resolution\": \"provide_info\",
+  \"response_text\": \"TRANSLATED_TEXT_HERE\",
+  \"extracted_entities\": {{}},
+  \"reasoning_trace\": \"Translated from source to {target_lang}.\"
+}}\"\"\"
+        else:
+            system_prompt = self._load_system_prompt()
         
         # Build user prompt
         user_prompt = f"Language: {language.value}\nTranscript: {transcript}\n"

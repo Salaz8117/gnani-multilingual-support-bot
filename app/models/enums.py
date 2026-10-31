@@ -53,6 +53,11 @@ class Language(str, Enum):
         return names.get(self.value, self.value)
 
 
+class BotMode(str, Enum):
+    """Operating mode of the bot."""
+    SUPPORT = "support"
+    TRANSLATE = "translate"
+
 class Intent(str, Enum):
     """Customer support intent categories."""
     

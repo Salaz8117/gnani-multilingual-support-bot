@@ -11,7 +11,7 @@ from app.services.prisma import PrismaClient
 from app.services.evon import EvonClient
 from app.services.timbre import TimbreClient
 from app.models.schemas import SupportBotRequest, SupportBotResponse
-from app.models.enums import Language
+from app.models.enums import Language, BotMode
 from app.utils.audio import decode_audio_base64, encode_audio_base64
 
 logger = structlog.get_logger()
@@ -50,7 +50,7 @@ class SupportBotPipeline:
         start_total = time.perf_counter()
         latency = {}
         
-        logger.info("pipeline_start", session_id=session_id, language=request.language.value)
+        logger.info("pipeline_start", session_id=session_id, language=request.language.value, mode=request.mode.value)
         
         try:
             # Stage 1: Speech-to-Text (Prisma)
@@ -79,6 +79,7 @@ class SupportBotPipeline:
                 language=prisma_response.language,
                 context=request.context,
                 conversation_history=history,
+                mode=request.mode,
             )
             
             latency["evon_ms"] = int((time.perf_counter() - start) * 1000)
@@ -143,6 +144,7 @@ class SupportBotPipeline:
         language: Language = Language.AUTO,
         session_id: Optional[str] = None,
         context: Optional[Dict[str, Any]] = None,
+        mode: BotMode = BotMode.SUPPORT,
     ) -> SupportBotResponse:
         """Process audio from a file path."""
         import base64
@@ -156,6 +158,7 @@ class SupportBotPipeline:
             language=language,
             session_id=session_id,
             context=context,
+            mode=mode,
         )
         
         return await self.process(request)
@@ -181,6 +184,7 @@ async def process_audio(
     language: Language = Language.AUTO,
     session_id: Optional[str] = None,
     context: Optional[Dict[str, Any]] = None,
+    mode: BotMode = BotMode.SUPPORT,
 ) -> SupportBotResponse:
     """Quick audio processing without managing pipeline instance."""
     pipeline = SupportBotPipeline()
@@ -191,6 +195,7 @@ async def process_audio(
             language=language,
             session_id=session_id,
             context=context,
+            mode=mode,
         )
         return await pipeline.process(request)
     finally:

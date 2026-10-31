@@ -11,7 +11,7 @@ import structlog
 
 from app.core.config import get_settings
 from app.pipelines.support_bot import SupportBotPipeline
-from app.models.enums import Language, Intent, Sentiment, ResolutionAction
+from app.models.enums import Language, Intent, Sentiment, ResolutionAction, BotMode
 from app.utils.audio import decode_audio_base64, encode_audio_base64
 from app.services.mock_clients import create_pipeline
 
@@ -39,6 +39,7 @@ async def process_audio_demo(
     language: str,
     session_id: str,
     context_json: str,
+    mode: str,
 ) -> Tuple[str, str, str, str, str, str, str, str, str]:
     """
     Process audio through the pipeline and return results for Gradio.
@@ -74,6 +75,7 @@ async def process_audio_demo(
             language=lang,
             session_id=session_id if session_id.strip() else None,
             context=context,
+            mode=BotMode(mode),
         )
         response = await pipeline.process(request)
         
@@ -112,6 +114,7 @@ async def process_microphone_demo(
     language: str,
     session_id: str,
     context_json: str,
+    mode: str,
 ) -> Tuple[str, str, str, str, str, str, str, str, str]:
     """Process microphone input from Gradio."""
     if audio is None:
@@ -123,7 +126,7 @@ async def process_microphone_demo(
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
         import soundfile as sf
         sf.write(tmp.name, audio_data, sr)
-        return await process_audio_demo(tmp.name, language, session_id, context_json)
+        return await process_audio_demo(tmp.name, language, session_id, context_json, mode)
 
 
 def create_demo_interface() -> gr.Blocks:
@@ -203,6 +206,16 @@ def create_demo_interface() -> gr.Blocks:
                             type="numpy",
                             format="wav",
                         )
+                
+                # Mode selection
+                mode = gr.Radio(
+                    choices=[
+                        ("Support Agent", "SUPPORT"),
+                        ("Real-time Translator", "TRANSLATE"),
+                    ],
+                    value="SUPPORT",
+                    label="Bot Mode",
+                )
                 
                 # Language selection
                 language = gr.Dropdown(
@@ -328,18 +341,18 @@ def create_demo_interface() -> gr.Blocks:
                 scenario_buttons.append((btn, filename, lang))
         
         # Wire up event handlers
-        async def run_demo(file_path, lang, sess_id, ctx):
-            results = await process_audio_demo(file_path, lang, sess_id, ctx)
+        async def run_demo(file_path, lang, sess_id, ctx, mode):
+            results = await process_audio_demo(file_path, lang, sess_id, ctx, mode)
             return results
         
-        async def run_mic(audio, lang, sess_id, ctx):
-            results = await process_microphone_demo(audio, lang, sess_id, ctx)
+        async def run_mic(audio, lang, sess_id, ctx, mode):
+            results = await process_microphone_demo(audio, lang, sess_id, ctx, mode)
             return results
         
         # File upload processing
         process_btn.click(
             fn=run_demo,
-            inputs=[audio_file, language, session_id, context_json],
+            inputs=[audio_file, language, session_id, context_json, mode],
             outputs=[
                 transcript, detected_lang, intent, sentiment, resolution,
                 response_text, response_audio, latency_info, error_output
@@ -353,7 +366,7 @@ def create_demo_interface() -> gr.Blocks:
         # Microphone processing
         audio_mic.change(
             fn=run_mic,
-            inputs=[audio_mic, language, session_id, context_json],
+            inputs=[audio_mic, language, session_id, context_json, mode],
             outputs=[
                 transcript, detected_lang, intent, sentiment, resolution,
                 response_text, response_audio, latency_info, error_output
@@ -368,7 +381,7 @@ def create_demo_interface() -> gr.Blocks:
         for btn, filename, lang in scenario_buttons:
             btn.click(
                 fn=lambda f=filename, l=lang: run_demo(
-                    f"assets/sample_audio/{f}", l, "", "{}"
+                    f"assets/sample_audio/{f}", l, "", "{}", "SUPPORT"
                 ),
                 inputs=[],
                 outputs=[
