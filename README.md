@@ -99,6 +99,8 @@ python app/demo.py
 
 Open http://localhost:7860 for the interactive demo.
 
+**✨ Demo Mode:** If no `GNANI_API_KEY` is configured in `.env`, the app automatically switches to **Demo Mode** using simulated responses. This allows you to explore the full pipeline (STT $\rightarrow$ Reasoning $\rightarrow$ TTS) immediately without API credentials.
+
 ---
 
 ## 📁 Project Structure
