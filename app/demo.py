@@ -10,9 +10,10 @@ import numpy as np
 import structlog
 
 from app.core.config import get_settings
-from app.pipelines.support_bot import SupportBotPipeline, process_audio
+from app.pipelines.support_bot import SupportBotPipeline
 from app.models.enums import Language, Intent, Sentiment, ResolutionAction
 from app.utils.audio import decode_audio_base64, encode_audio_base64
+from app.services.mock_clients import create_pipeline
 
 logger = structlog.get_logger()
 
@@ -24,7 +25,12 @@ def get_demo_pipeline() -> SupportBotPipeline:
     """Get or create demo pipeline instance."""
     global _demo_pipeline
     if _demo_pipeline is None:
-        _demo_pipeline = SupportBotPipeline()
+        # Use mock clients if no API key configured
+        settings = get_settings()
+        use_mock = not settings.gnani_api_key or settings.gnani_api_key == "your_gnani_api_key_here"
+        if use_mock:
+            logger.info("using_mock_clients_for_demo")
+        _demo_pipeline = create_pipeline(use_mock=use_mock)
     return _demo_pipeline
 
 
@@ -150,6 +156,16 @@ def create_demo_interface() -> gr.Blocks:
         -webkit-text-fill-color: transparent;
         font-weight: bold;
     }
+    .mode-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85em;
+        font-weight: bold;
+        margin-left: 10px;
+    }
+    .mode-mock { background: #fff3cd; color: #856404; }
+    .mode-real { background: #d4edda; color: #155724; }
     """
     
     with gr.Blocks(css=css, title="Gnani Multilingual Voice Support Bot") as demo:
@@ -163,6 +179,7 @@ def create_demo_interface() -> gr.Blocks:
             <p style="color: #888;">
                 <em>Great Indian AI Internship Challenge 2026 Entry</em>
             </p>
+            <div id="mode-indicator" style="margin-top: 10px;"></div>
         </div>
         """)
         
@@ -295,6 +312,7 @@ def create_demo_interface() -> gr.Blocks:
         # Demo scenarios section
         gr.HTML("<hr style='margin: 30px 0;'>")
         gr.HTML("<h2 class='header-text' style='font-size: 1.5em;'>🎬 Demo Scenarios</h2>")
+        gr.HTML("<p style='color: #666;'>Click a scenario to run it with simulated audio (works without API keys)</p>")
         
         with gr.Row():
             scenario_buttons = []
@@ -369,6 +387,19 @@ def create_demo_interface() -> gr.Blocks:
             <p>Built for <strong>#GnaniAI #GreatIndianAIInternshipChallenge</strong></p>
             <p>GitHub: <a href="https://github.com/Salaz8117/gnani-multilingual-support-bot" target="_blank">Salaz8117/gnani-multilingual-support-bot</a></p>
         </div>
+        """)
+        
+        # Add JavaScript to show mode indicator
+        gr.HTML("""
+        <script>
+        setTimeout(() => {
+            const indicator = document.getElementById('mode-indicator');
+            if (indicator) {
+                // Check if mock mode by looking for a hidden element we'll add
+                indicator.innerHTML = '<span class="mode-badge mode-mock">🎭 Demo Mode (Mock APIs)</span>';
+            }
+        }, 500);
+        </script>
         """)
     
     return demo
