@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - GNANI_API_KEY=${GNANI_API_KEY}
+      - GNANI_BASE_URL=${GNANI_BASE_URL:-https://api.gnani.ai/v1}
+      - APP_ENV=production
+      - LOG_LEVEL=INFO
+      - DEBUG=false
+    env_file:
+      - .env
+    volumes:
+      - ./assets:/app/assets:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  demo:
+    build: .
+    command: python app/demo.py
+    ports:
+      - "7860:7860"
+    environment:
+      - GNANI_API_KEY=${GNANI_API_KEY}
+      - GNANI_BASE_URL=${GNANI_BASE_URL:-https://api.gnani.ai/v1}
+      - APP_ENV=production
+      - LOG_LEVEL=INFO
+      - DEBUG=false
+    env_file:
+      - .env
+    volumes:
+      - ./assets:/app/assets:ro
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  redis_data:

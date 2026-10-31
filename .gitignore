@@ -1,0 +1,62 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+htmlcov/
+.coverage
+.coverage.*
+pytest_cache/
+
+# Distribution
+dist/
+build/
+*.egg-info/
+
+# Audio files (large)
+assets/sample_audio/*.wav
+assets/sample_audio/*.mp3
+!assets/sample_audio/.gitkeep
+
+# Model weights (if any)
+*.bin
+*.pt
+*.pth
+*.gguf
+
+# Docker
+.docker/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Type checking
+.mypy_cache/
+.ruff_cache/
