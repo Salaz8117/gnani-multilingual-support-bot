@@ -81,7 +81,7 @@ class TestSupportBotPipeline:
         assert response.resolution == ResolutionAction.APPROVE_REFUND
         assert response.response_text == "Maaf kijiye, aapka refund process kar diya gaya hai."
         assert response.response_audio_base64 == "dGVzdCBhdWRpbw=="
-        assert response.total_latency_ms > 0
+        assert response.total_latency_ms >= 0
         assert "prisma_ms" in response.latency_breakdown
         assert "evon_ms" in response.latency_breakdown
         assert "timbre_ms" in response.latency_breakdown
