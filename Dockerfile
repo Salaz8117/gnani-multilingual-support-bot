@@ -11,7 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-COPY requirements.txt pyproject.toml ./
+COPY requirements.txt pyproject.toml README.md ./
+COPY app/ ./app/
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Runtime stage

@@ -11,6 +11,10 @@ from app.core.config import get_settings
 def configure_logging():
     """Configure structured logging for the application."""
     settings = get_settings()
+
+    reconfigure_stdout = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure_stdout is not None:
+        reconfigure_stdout(errors="backslashreplace")
     
     log_level = settings.log_level.upper()
     
