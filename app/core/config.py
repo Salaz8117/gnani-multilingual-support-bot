@@ -64,7 +64,7 @@ class Settings(BaseSettings):
         default="http://localhost:3000,http://localhost:7860",
         alias="CORS_ORIGINS",
     )
-    
+
     @property
     def supported_formats_list(self) -> list[str]:
         return [fmt.strip() for fmt in self.supported_audio_formats.split(",")]
