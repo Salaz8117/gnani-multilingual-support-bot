@@ -16,7 +16,6 @@ class TestTimbreClient:
         with patch.dict("os.environ", {"GNANI_API_KEY": "test_key"}):
             return TimbreClient(api_key="test_key", base_url="http://test.api")
     
-    @pytest.mark.asyncio
     async def test_synthesize_success(self, client):
         """Test successful synthesis."""
         mock_response = MagicMock()
@@ -29,6 +28,7 @@ class TestTimbreClient:
         mock_response.raise_for_status = MagicMock()
         
         client._client = AsyncMock()
+        client._client.is_closed = False
         client._client.post.return_value = mock_response
         
         result = await client.synthesize(
@@ -42,7 +42,6 @@ class TestTimbreClient:
         assert result.format == "wav"
         assert result.sample_rate == 22050
     
-    @pytest.mark.asyncio
     async def test_synthesize_http_error(self, client):
         """Test synthesis with HTTP error."""
         import httpx
@@ -52,6 +51,7 @@ class TestTimbreClient:
         mock_response.text = "Bad Request"
         
         client._client = AsyncMock()
+        client._client.is_closed = False
         client._client.post.side_effect = httpx.HTTPStatusError(
             "Bad Request", request=MagicMock(), response=mock_response
         )

@@ -66,8 +66,10 @@ cd gnani-multilingual-support-bot
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
-# Install dependencies
+# Install runtime and development dependencies
 pip install -r requirements.txt
+# requirements.txt delegates to the project dependencies and [dev] extra in pyproject.toml.
+# For runtime dependencies only, use: pip install -e .
 
 # Configure environment
 cp .env.example .env
@@ -85,6 +87,9 @@ GNANI_BASE_URL=https://api.gnani.ai/v1  # Or your gateway URL
 TWILIO_ACCOUNT_SID=xxx
 TWILIO_AUTH_TOKEN=xxx
 TWILIO_PHONE_NUMBER=+1xxxxxxxxxx
+
+# CORS allowed origins (comma-separated); never use "*" with credentials
+CORS_ORIGINS=http://localhost:3000,http://localhost:7860
 ```
 
 ### Run the Demo
@@ -99,7 +104,7 @@ python app/demo.py
 
 Open http://localhost:7860 for the interactive demo.
 
-**✨ Demo Mode:** If no `GNANI_API_KEY` is configured in `.env`, the app automatically switches to **Demo Mode** using simulated responses. This allows you to explore the full pipeline (STT $\rightarrow$ Reasoning $\rightarrow$ TTS) immediately without API credentials.
+**Demo Mode:** The standalone Gradio UI uses simulated responses when `GNANI_API_KEY` is unset or left at the example placeholder, so the scenario buttons work without credentials. The FastAPI server requires a real key and raises `ConfigurationError` during startup if it is missing; set `GNANI_API_KEY` in `.env` before starting the API.
 
 ---
 

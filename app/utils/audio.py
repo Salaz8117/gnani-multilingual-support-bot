@@ -4,7 +4,6 @@ import base64
 import io
 from typing import Optional, Tuple
 import numpy as np
-from pydub import AudioSegment
 import soundfile as sf
 
 
@@ -47,6 +46,8 @@ def convert_audio_format(
     target_sr: int = 16000,
 ):
     """Convert audio file to target format and sample rate."""
+    from pydub import AudioSegment
+
     audio = AudioSegment.from_file(input_path)
     
     # Convert to mono
@@ -61,6 +62,8 @@ def convert_audio_format(
 
 def get_audio_duration(file_path: str) -> float:
     """Get audio duration in seconds."""
+    from pydub import AudioSegment
+
     audio = AudioSegment.from_file(file_path)
     return len(audio) / 1000.0
 
@@ -76,6 +79,8 @@ def validate_audio_file(file_path: str, max_size_mb: int = 25) -> bool:
     
     # Check if readable
     try:
+        from pydub import AudioSegment
+
         AudioSegment.from_file(file_path)
         return True
     except Exception:
@@ -89,6 +94,7 @@ def split_audio_on_silence(
     keep_silence: int = 100,
 ) -> list:
     """Split audio on silence for processing long files."""
+    from pydub import AudioSegment
     audio = AudioSegment.from_file(file_path)
     
     from pydub.silence import split_on_silence

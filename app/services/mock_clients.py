@@ -15,7 +15,7 @@ from app.models.schemas import (
     SupportBotRequest,
     SupportBotResponse,
 )
-from app.models.enums import Language, Intent, Sentiment, ResolutionAction, VoiceType
+from app.models.enums import Language, Intent, Sentiment, ResolutionAction, VoiceType, BotMode
 from app.core.exceptions import PrismaError, EvonError, TimbreError
 
 
@@ -150,9 +150,23 @@ class MockEvonClient:
         language: Language,
         context: Optional[Dict[str, Any]] = None,
         conversation_history: Optional[List[Dict[str, str]]] = None,
+        mode: BotMode = BotMode.SUPPORT,
     ) -> EvonReasoningResponse:
         """Simulate reasoning with realistic delay."""
         await asyncio.sleep(0.6 + random.uniform(0, 0.4))  # 600-1000ms
+
+        if mode == BotMode.TRANSLATE:
+            target_language = (context or {}).get("target_language", "en-IN")
+            return EvonReasoningResponse(
+                intent=Intent.GENERAL_QUERY,
+                sentiment=Sentiment.NEUTRAL,
+                confidence=0.9,
+                resolution=ResolutionAction.PROVIDE_INFO,
+                response_text=f"[Mock translation to {target_language}] {transcript}",
+                extracted_entities={},
+                reasoning_trace=f"Simulated translation from {language.value} to {target_language}",
+                processing_time_ms=int(600 + random.uniform(0, 400)),
+            )
         
         # Match scenario based on transcript keywords
         transcript_lower = transcript.lower()

@@ -13,6 +13,7 @@ from app.core.config import get_settings
 from app.pipelines.support_bot import SupportBotPipeline
 from app.models.enums import Language, Intent, Sentiment, ResolutionAction, BotMode
 from app.utils.audio import decode_audio_base64, encode_audio_base64
+from app.utils.logging import configure_logging
 from app.services.mock_clients import create_pipeline
 
 logger = structlog.get_logger()
@@ -380,10 +381,13 @@ def create_demo_interface() -> gr.Blocks:
         
         # Scenario buttons
         for btn, filename, lang in scenario_buttons:
+            async def run_scenario(f=filename, l=lang):
+                return await run_demo(
+                    f"assets/sample_audio/{f}", l, "", "{}", BotMode.SUPPORT.value
+                )
+
             btn.click(
-                fn=lambda f=filename, l=lang: run_demo(
-                    f"assets/sample_audio/{f}", l, "", "{}", "SUPPORT"
-                ),
+                fn=run_scenario,
                 inputs=[],
                 outputs=[
                     transcript, detected_lang, intent, sentiment, resolution,
@@ -421,6 +425,7 @@ def create_demo_interface() -> gr.Blocks:
 
 def launch_demo():
     """Launch the Gradio demo."""
+    configure_logging()
     settings = get_settings()
     demo = create_demo_interface()
     demo.launch(

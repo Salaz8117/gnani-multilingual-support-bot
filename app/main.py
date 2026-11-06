@@ -72,7 +72,8 @@ async def lifespan(app: FastAPI):
     logger.info("starting_application")
 
     settings = get_settings()
-    if not settings.gnani_api_key:
+    api_key = settings.gnani_api_key.strip()
+    if not api_key or api_key.lower() == "your_gnani_api_key_here":
         raise ConfigurationError(
             "GNANI_API_KEY is not configured", missing_keys=["GNANI_API_KEY"]
         )

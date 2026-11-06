@@ -16,7 +16,6 @@ class TestPrismaClient:
         with patch.dict("os.environ", {"GNANI_API_KEY": "test_key"}):
             return PrismaClient(api_key="test_key", base_url="http://test.api")
     
-    @pytest.mark.asyncio
     async def test_transcribe_success(self, client):
         """Test successful transcription."""
         mock_response = MagicMock()
@@ -31,6 +30,7 @@ class TestPrismaClient:
         mock_response.raise_for_status = MagicMock()
         
         client._client = AsyncMock()
+        client._client.is_closed = False
         client._client.post.return_value = mock_response
         
         result = await client.transcribe("base64_audio", language=Language.ENGLISH_INDIA)
@@ -40,7 +40,6 @@ class TestPrismaClient:
         assert result.language == Language.ENGLISH_INDIA
         assert result.confidence == 0.95
     
-    @pytest.mark.asyncio
     async def test_transcribe_http_error(self, client):
         """Test transcription with HTTP error."""
         import httpx
@@ -51,6 +50,7 @@ class TestPrismaClient:
         mock_response.json.return_value = {"error": "Invalid audio"}
         
         client._client = AsyncMock()
+        client._client.is_closed = False
         client._client.post.side_effect = httpx.HTTPStatusError(
             "Bad Request", request=MagicMock(), response=mock_response
         )
@@ -58,13 +58,13 @@ class TestPrismaClient:
         with pytest.raises(Exception):  # PrismaError
             await client.transcribe("base64_audio")
     
-    @pytest.mark.asyncio
     async def test_health_check(self, client):
         """Test health check."""
         mock_response = MagicMock()
         mock_response.status_code = 200
         
         client._client = AsyncMock()
+        client._client.is_closed = False
         client._client.get.return_value = mock_response
         
         result = await client.health_check()

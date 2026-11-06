@@ -18,7 +18,6 @@ class TestEvonClient:
             with patch("app.services.evon.EvonClient._load_system_prompt", return_value="test prompt"):
                 return EvonClient(api_key="test_key", base_url="http://test.api")
     
-    @pytest.mark.asyncio
     async def test_reason_success(self, client):
         """Test successful reasoning."""
         evon_response = {
@@ -35,9 +34,11 @@ class TestEvonClient:
         mock_response.json.return_value = {
             "choices": [{"message": {"content": json.dumps(evon_response)}}]
         }
+        mock_response.status_code = 200
         mock_response.raise_for_status = MagicMock()
         
         client._client = AsyncMock()
+        client._client.is_closed = False
         client._client.post.return_value = mock_response
         
         result = await client.reason(
@@ -51,7 +52,6 @@ class TestEvonClient:
         assert result.confidence == 0.92
         assert result.resolution == ResolutionAction.APPROVE_REFUND
     
-    @pytest.mark.asyncio
     async def test_reason_http_error(self, client):
         """Test reasoning with HTTP error."""
         import httpx
@@ -61,6 +61,7 @@ class TestEvonClient:
         mock_response.text = "Internal Server Error"
         
         client._client = AsyncMock()
+        client._client.is_closed = False
         client._client.post.side_effect = httpx.HTTPStatusError(
             "Server Error", request=MagicMock(), response=mock_response
         )

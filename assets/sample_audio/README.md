@@ -1,6 +1,10 @@
 # Sample Audio Directory
 
-Place your demo audio files here for the Gradio demo scenarios:
+The four scenario buttons use small synthetic tone WAVs so the demo works out
+of the box. The mock clients return simulated transcripts; the files are not
+recordings of speech. To regenerate them, run `python scripts/generate_audio_samples.py`.
+
+Replace these samples with real recordings if desired:
 
 - hinglish_refund_noisy.wav - Hinglish refund request with background noise
 - tamil_complaint.wav - Tamil product complaint
@@ -10,7 +14,4 @@ Place your demo audio files here for the Gradio demo scenarios:
 Format: WAV, 16kHz, mono preferred
 Max size: 25MB per file
 
-You can generate these using:
-1. Text-to-speech tools
-2. Recording real scenarios
-3. Using the Timbre API once you have credentials
+Keep WAVs at 16 kHz, mono, and under 1 MB for each committed sample.

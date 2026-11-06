@@ -50,12 +50,6 @@ class Settings(BaseSettings):
     demo_port: int = Field(default=7860, alias="DEMO_PORT")
     api_port: int = Field(default=8000, alias="API_PORT")
 
-    # CORS — comma-separated explicit origins; never pair "*" with credentials
-    cors_origins: str = Field(
-        default="http://localhost:7860,http://127.0.0.1:7860",
-        alias="CORS_ORIGINS",
-    )
-    
     # Twilio (optional)
     twilio_account_sid: Optional[str] = Field(default=None, alias="TWILIO_ACCOUNT_SID")
     twilio_auth_token: Optional[str] = Field(default=None, alias="TWILIO_AUTH_TOKEN")
@@ -65,10 +59,16 @@ class Settings(BaseSettings):
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
     session_ttl_seconds: int = Field(default=3600, alias="SESSION_TTL_SECONDS")
     
+    # CORS — comma-separated explicit origins; never pair "*" with credentials
+    cors_origins: str = Field(
+        default="http://localhost:3000,http://localhost:7860",
+        alias="CORS_ORIGINS",
+    )
+    
     @property
     def supported_formats_list(self) -> list[str]:
         return [fmt.strip() for fmt in self.supported_audio_formats.split(",")]
-
+    
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
