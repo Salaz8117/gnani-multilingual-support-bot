@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     @property
     def supported_formats_list(self) -> list[str]:
         return [fmt.strip() for fmt in self.supported_audio_formats.split(",")]
-    
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
