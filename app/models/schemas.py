@@ -1,10 +1,20 @@
 """Pydantic models for API requests and responses."""
 
+import base64
+import binascii
 from typing import Optional, List, Dict, Any, Literal
-from pydantic import BaseModel, Field, ConfigDict
-from datetime import datetime
+from pydantic import BaseModel, Field, ConfigDict, field_validator
+from datetime import datetime, timezone
 
 from app.models.enums import Language, Intent, Sentiment, ResolutionAction, VoiceType, AudioFormat, BotMode
+
+# Decoded-audio ceiling, kept in sync with Settings.max_audio_size_mb default (25 MB).
+MAX_AUDIO_BYTES = 25 * 1024 * 1024
+
+
+def _utcnow() -> datetime:
+    """Timezone-aware UTC now (datetime.utcnow is deprecated)."""
+    return datetime.now(timezone.utc)
 
 
 class PrismaTranscriptionRequest(BaseModel):
@@ -85,15 +95,29 @@ class TimbreSynthesisResponse(BaseModel):
 
 class SupportBotRequest(BaseModel):
     """Unified request for the support bot pipeline."""
-    
+
     model_config = ConfigDict(populate_by_name=True)
-    
-    audio_base64: str = Field(..., description="Base64 encoded audio input")
-    audio_format: str = Field(default="wav", description="Audio format")
+
+    audio_base64: str = Field(..., min_length=1, description="Base64 encoded audio input")
+    audio_format: Literal["wav", "mp3", "flac", "ogg", "m4a", "aac", "opus"] = Field(
+        default="wav", description="Audio container format"
+    )
     language: Language = Field(default=Language.AUTO, description="Expected language or 'auto'")
     mode: BotMode = Field(default=BotMode.SUPPORT, description="Bot operating mode (support or translate)")
-    session_id: Optional[str] = Field(default=None, description="Session ID for conversation continuity")
+    session_id: Optional[str] = Field(default=None, max_length=64, description="Session ID for conversation continuity")
     context: Optional[Dict[str, Any]] = Field(default=None, description="Additional context")
+
+    @field_validator("audio_base64")
+    @classmethod
+    def validate_audio_base64(cls, value: str) -> str:
+        """Reject payloads that are not valid base64 or exceed the decoded-size ceiling."""
+        try:
+            decoded = base64.b64decode(value, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise ValueError("audio_base64 is not valid base64 data") from exc
+        if len(decoded) > MAX_AUDIO_BYTES:
+            raise ValueError(f"decoded audio exceeds {MAX_AUDIO_BYTES // (1024 * 1024)} MB limit")
+        return value
 
 
 class SupportBotResponse(BaseModel):
@@ -111,7 +135,7 @@ class SupportBotResponse(BaseModel):
     response_audio_base64: str = Field(..., description="Base64 encoded response audio")
     latency_breakdown: Dict[str, int] = Field(..., description="Latency per stage in ms")
     total_latency_ms: int = Field(..., description="Total pipeline latency")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Response timestamp")
+    timestamp: datetime = Field(default_factory=_utcnow, description="Response timestamp")
 
 
 class HealthCheckResponse(BaseModel):
@@ -122,7 +146,7 @@ class HealthCheckResponse(BaseModel):
     status: Literal["healthy", "degraded", "unhealthy"]
     version: str = "0.1.0"
     services: Dict[str, Literal["up", "down", "unknown"]]
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=_utcnow)
 
 
 class ErrorResponse(BaseModel):
@@ -133,4 +157,4 @@ class ErrorResponse(BaseModel):
     error: str
     detail: str
     service: Optional[str] = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=_utcnow)

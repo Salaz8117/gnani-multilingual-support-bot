@@ -27,7 +27,8 @@ def get_demo_pipeline() -> SupportBotPipeline:
     if _demo_pipeline is None:
         # Use mock clients if no API key configured
         settings = get_settings()
-        use_mock = not settings.gnani_api_key or settings.gnani_api_key == "your_gnani_api_key_here"
+        # Empty key or any documented placeholder value means "run in mock/demo mode".
+        use_mock = not settings.gnani_api_key or settings.gnani_api_key.startswith("your_")
         if use_mock:
             logger.info("using_mock_clients_for_demo")
         _demo_pipeline = create_pipeline(use_mock=use_mock)

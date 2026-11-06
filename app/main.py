@@ -1,8 +1,12 @@
 """FastAPI application for the Multilingual Voice Support Bot."""
 
+import json
+import os
+import tempfile
 import uuid
 from contextlib import asynccontextmanager
-from typing import Dict, Any
+from pathlib import Path
+from typing import Any, Dict, Optional
 import structlog
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
@@ -28,34 +32,61 @@ from app.models.schemas import (
 )
 from app.models.enums import Language
 from app.utils.audio import decode_audio_base64, validate_audio_file, audio_to_base64_file
+from app.utils.logging import configure_logging
 
 logger = structlog.get_logger()
 
 # Global pipeline instance
-pipeline: SupportBotPipeline = None
+pipeline: Optional[SupportBotPipeline] = None
+
+_ALLOWED_AUDIO_FORMATS = {"wav", "mp3", "m4a", "ogg", "flac", "aac", "opus", "webm"}
+
+
+def _safe_suffix(filename: Optional[str]) -> str:
+    """Return a lowercase container extension from an upload name, or '' if unusable."""
+    if not filename:
+        return ""
+    ext = Path(filename).suffix.lstrip(".").lower()
+    return ext if ext in _ALLOWED_AUDIO_FORMATS else ""
+
+
+def _parse_context(raw: str) -> Dict[str, Any]:
+    """Parse the context form field into a dict, rejecting malformed JSON with 400."""
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="context must be valid JSON") from exc
+    if not isinstance(parsed, dict):
+        raise HTTPException(status_code=400, detail="context must be a JSON object")
+    return parsed
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     global pipeline
-    
+
+    configure_logging()
     logger.info("starting_application")
-    
-    # Initialize pipeline
-    pipeline = SupportBotPipeline()
-    
-    # Verify configuration
+
     settings = get_settings()
     if not settings.gnani_api_key:
-        logger.warning("gnani_api_key_not_configured")
-    
+        raise ConfigurationError(
+            "GNANI_API_KEY is not configured", missing_keys=["GNANI_API_KEY"]
+        )
+
+    # Initialize pipeline
+    pipeline = SupportBotPipeline()
+
     yield
-    
+
     # Cleanup
     logger.info("shutting_down")
     if pipeline:
         await pipeline.close()
+        pipeline = None
 
 
 app = FastAPI(
@@ -65,13 +96,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS for demo frontend
+# CORS — explicit origins from settings; never pair "*" with credentials.
+_origins = get_settings().cors_origins_list
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_origins,
+    allow_credentials="*" not in _origins,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 
@@ -152,49 +184,49 @@ async def process_audio_base64(request: SupportBotRequest):
 async def process_audio_file(
     file: UploadFile = File(...),
     language: Language = Form(default=Language.AUTO),
-    session_id: str = Form(default=None),
+    session_id: Optional[str] = Form(default=None),
     context: str = Form(default="{}"),
 ):
     """Process uploaded audio file through the full pipeline."""
     if not pipeline:
         raise HTTPException(status_code=503, detail="Pipeline not initialized")
-    
-    # Validate file
+
+    settings = get_settings()
+    audio_format = _safe_suffix(file.filename)
+    if not audio_format:
+        raise HTTPException(status_code=400, detail="Unsupported or missing audio file extension")
+
     contents = await file.read()
-    if len(contents) > get_settings().max_audio_size_mb * 1024 * 1024:
+    max_bytes = settings.max_audio_size_mb * 1024 * 1024
+    if not contents:
+        raise HTTPException(status_code=400, detail="Empty upload")
+    if len(contents) > max_bytes:
         raise HTTPException(status_code=413, detail="File too large")
-    
-    # Save temp file for validation
-    import tempfile
-    import os
-    
-    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file.filename.split('.')[-1]}") as tmp:
+
+    ctx = _parse_context(context)
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{audio_format}") as tmp:
         tmp.write(contents)
         tmp_path = tmp.name
-    
+
     try:
-        if not validate_audio_file(tmp_path, get_settings().max_audio_size_mb):
+        if not validate_audio_file(tmp_path, settings.max_audio_size_mb):
             raise HTTPException(status_code=400, detail="Invalid audio file")
-        
-        # Convert to base64
+
         audio_base64 = audio_to_base64_file(tmp_path)
-        
-        # Parse context
-        import json
-        ctx = json.loads(context) if context else {}
-        
+
         request = SupportBotRequest(
             audio_base64=audio_base64,
-            audio_format=file.filename.split('.')[-1],
+            audio_format=audio_format,
             language=language,
             session_id=session_id,
             context=ctx,
         )
-        
+
         return await pipeline.process(request)
-        
+
     finally:
-        os.unlink(tmp_path)
+        Path(tmp_path).unlink(missing_ok=True)
 
 
 @app.post("/api/v1/prisma/transcribe")
@@ -205,19 +237,28 @@ async def transcribe_only(
     """Transcribe only using Prisma (STT)."""
     if not pipeline:
         raise HTTPException(status_code=503, detail="Pipeline not initialized")
-    
+
+    settings = get_settings()
+    audio_format = _safe_suffix(file.filename)
+    if not audio_format:
+        raise HTTPException(status_code=400, detail="Unsupported or missing audio file extension")
+
     contents = await file.read()
-    import tempfile, os
-    
-    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file.filename.split('.')[-1]}") as tmp:
+    max_bytes = settings.max_audio_size_mb * 1024 * 1024
+    if not contents:
+        raise HTTPException(status_code=400, detail="Empty upload")
+    if len(contents) > max_bytes:
+        raise HTTPException(status_code=413, detail="File too large")
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{audio_format}") as tmp:
         tmp.write(contents)
         tmp_path = tmp.name
-    
+
     try:
         result = await pipeline.prisma.transcribe_file(tmp_path, language=language)
         return result.model_dump()
     finally:
-        os.unlink(tmp_path)
+        Path(tmp_path).unlink(missing_ok=True)
 
 
 @app.get("/api/v1/demo/scenarios")
