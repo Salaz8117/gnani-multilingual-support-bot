@@ -16,6 +16,9 @@ from app.utils.audio import decode_audio_base64, encode_audio_base64
 
 logger = structlog.get_logger()
 
+# Conversation history cap: 10 full turns = 20 messages (user + assistant each).
+MAX_HISTORY_MESSAGES = 20
+
 
 class SupportBotPipeline:
     """Orchestrates the full support bot pipeline: STT -> Reasoning -> TTS."""
@@ -120,23 +123,35 @@ class SupportBotPipeline:
                 total_latency_ms=total_latency,
             )
             
+        except PipelineError:
+            raise
         except Exception as e:
-            logger.error("pipeline_failed", session_id=session_id, error=str(e))
-            raise PipelineError(f"Pipeline failed: {str(e)}", stage="unknown", original_error=e)
-    
+            logger.error("pipeline_failed", session_id=session_id, error=str(e), exc_info=True)
+            stage = self._stage_from_error(e)
+            raise PipelineError(f"Pipeline failed at {stage}: {e}", stage=stage, original_error=e) from e
+
+    @staticmethod
+    def _stage_from_error(exc: Exception) -> str:
+        """Map a service exception to the pipeline stage that raised it."""
+        service = getattr(exc, "service", None)
+        if service:
+            return str(service)
+        name = type(exc).__name__.lower()
+        for stage in ("prisma", "evon", "timbre"):
+            if stage in name:
+                return stage
+        return "unknown"
+
     def _update_session(self, session_id: str, user_text: str, bot_text: str):
-        """Update conversation history for session."""
+        """Update conversation history for session, capped at MAX_HISTORY_MESSAGES entries."""
         if session_id not in self._sessions:
             self._sessions[session_id] = {"history": [], "created": time.time()}
-        
-        self._sessions[session_id]["history"].extend([
+
+        history = self._sessions[session_id]["history"] + [
             {"role": "user", "content": user_text},
             {"role": "assistant", "content": bot_text},
-        ])
-        
-        # Keep only last 10 turns
-        if len(self._sessions[session_id]["history"]) > 20:
-            self._sessions[session_id]["history"] = self._sessions[session_id]["history"][-20:]
+        ]
+        self._sessions[session_id]["history"] = history[-MAX_HISTORY_MESSAGES:]
     
     async def process_file(
         self,

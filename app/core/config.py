@@ -49,6 +49,12 @@ class Settings(BaseSettings):
     # Demo
     demo_port: int = Field(default=7860, alias="DEMO_PORT")
     api_port: int = Field(default=8000, alias="API_PORT")
+
+    # CORS — comma-separated explicit origins; never pair "*" with credentials
+    cors_origins: str = Field(
+        default="http://localhost:7860,http://127.0.0.1:7860",
+        alias="CORS_ORIGINS",
+    )
     
     # Twilio (optional)
     twilio_account_sid: Optional[str] = Field(default=None, alias="TWILIO_ACCOUNT_SID")
@@ -63,8 +69,17 @@ class Settings(BaseSettings):
     def supported_formats_list(self) -> list[str]:
         return [fmt.strip() for fmt in self.supported_audio_formats.split(",")]
 
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
-@lru_cache
+
+@lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """Get cached settings instance."""
+    """Get cached settings instance. Call reset_settings() in tests that patch env vars."""
     return Settings()
+
+
+def reset_settings() -> None:
+    """Clear the cached Settings so a fresh one is built from the current environment."""
+    get_settings.cache_clear()

@@ -1,7 +1,10 @@
 """Structured logging configuration."""
 
 import sys
+from typing import Optional
+
 import structlog
+
 from app.core.config import get_settings
 
 
@@ -28,10 +31,6 @@ def configure_logging():
     )
 
 
-def get_logger(name: str = None):
+def get_logger(name: Optional[str] = None):
     """Get a structured logger instance."""
     return structlog.get_logger(name)
-
-
-# Configure on import
-configure_logging()
